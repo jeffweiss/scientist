@@ -71,10 +71,11 @@ defmodule ExperimentTest do
   end
 
   test "it runs every candidate" do
+    parent = self()
     Experiment.new
-      |> Experiment.add_control(fn -> send(self(), 1) end)
-      |> Experiment.add_candidate("one", fn -> send(self(), 2) end)
-      |> Experiment.add_candidate("two", fn -> send(self(), 3) end)
+      |> Experiment.add_control(fn -> send(parent, 1) end)
+      |> Experiment.add_candidate("one", fn -> send(parent, 2) end)
+      |> Experiment.add_candidate("two", fn -> send(parent, 3) end)
       |> Experiment.run
     assert_received 1
     assert_received 2
@@ -91,14 +92,15 @@ defmodule ExperimentTest do
   end
 
   test "it runs the candidates in arbitrary order" do
+    parent = self()
     experiment = Experiment.new
-      |> Experiment.add_control(fn -> send(self(), 1) end)
-      |> Experiment.add_candidate("one", fn -> send(self(), 2) end)
+      |> Experiment.add_control(fn -> send(parent, 1) end)
+      |> Experiment.add_candidate("one", fn -> send(parent, 2) end)
 
     Stream.repeatedly(fn -> Experiment.run(experiment) end)
     |> Stream.take(1000)
     |> Enum.to_list
-    {_, messages} = Process.info(self(), :messages)
+    {_, messages} = Process.info(parent, :messages)
 
     unique = Enum.chunk(messages, 2) |> Enum.uniq |> Enum.count
     assert unique == 2
@@ -123,6 +125,29 @@ defmodule ExperimentTest do
     |> Scientist.Result.matched?
 
     assert matched
+  end
+
+  defp test_experiment_with_receiver(pid) do
+    contents = quote do
+      use Scientist.Experiment
+
+      def default_name, do: "My awesome experiment"
+
+      def default_context, do: %{foo: :foo}
+
+      def enabled?, do: true
+      def publish(_), do: send(unquote(pid), :published)
+
+      def raised(_experiment, operation, except) do
+        send(unquote(pid), {operation, except})
+      end
+
+      def thrown(_experiment, operation, except) do
+        send(unquote(pid), {:thrown, operation, except})
+      end
+    end
+    {:module, module, _, _} = Module.create(TestExperimentWithPid, contents, Macro.Env.location(__ENV__))
+    module
   end
 
   defmodule TestExperiment do
@@ -177,7 +202,8 @@ defmodule ExperimentTest do
   end
 
   test "it reports errors raised during clean" do
-    experiment = TestExperiment.new
+    module = test_experiment_with_receiver(self())
+    experiment = module.new
     |> Experiment.add_control(fn -> :control end)
     |> Experiment.add_candidate(fn -> :control end)
 

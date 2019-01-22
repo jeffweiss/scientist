@@ -170,7 +170,8 @@ defmodule Scientist.Experiment do
 
       observations = exp.candidates
       |> Enum.shuffle
-      |> Enum.map(&(eval_candidate(exp, &1)))
+      |> Task.async_stream(&(eval_candidate(exp, &1)))
+      |> Enum.map(&(elem(&1, 1)))
       |> Enum.to_list
 
       {[control], candidates} = Enum.split_with(observations, fn o ->
