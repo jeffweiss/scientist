@@ -45,7 +45,8 @@ defmodule Scientist.Experiment do
       ignore: [],
       comparator: &Kernel.==/2,
       raise_on_mismatches: false,
-      module: Scientist.Default
+      module: Scientist.Default,
+      timeunit: :milliseconds
     ]
 
   @doc """
@@ -124,7 +125,8 @@ defmodule Scientist.Experiment do
       name: name,
       module: Keyword.get(opts, :module, Scientist.Default),
       context: Keyword.get(opts, :context, %{}),
-      raise_on_mismatches: Keyword.get(opts, :raise_on_mismatches, false)
+      raise_on_mismatches: Keyword.get(opts, :raise_on_mismatches, false),
+      timeunit: Keyword.get(opts, :timeunit, :milliseconds)
     }
   end
 

@@ -8,8 +8,6 @@ defmodule Scientist.Observation do
   The timestamp is recorded as the system time, and along with the duration, is
   reported in milliseconds.
   """
-  @timeunit :milli_seconds
-
   import  Scientist.Experiment, only: [guarded: 3]
 
   defstruct [
@@ -33,16 +31,16 @@ defmodule Scientist.Observation do
     observation = %Scientist.Observation{
       name: name,
       experiment: experiment,
-      timestamp: System.system_time(@timeunit),
+      timestamp: System.system_time(experiment.timeunit),
     }
     try do
-      value = candidate.()
+      {duration_in_microseconds, value} = :timer.tc(candidate)
       cleaned = if experiment.clean do
         guarded experiment, :clean, do: experiment.clean.(value)
       else
         value
       end
-      duration = System.system_time(@timeunit) - observation.timestamp
+      duration = convert_duration_to_experiment_timeunit(duration_in_microseconds, experiment.timeunit)
       %__MODULE__{ observation |
         value: value,
         duration: duration,
@@ -62,6 +60,10 @@ defmodule Scientist.Observation do
         }
     end
   end
+
+  defp convert_duration_to_experiment_timeunit(duration, :microseconds), do: duration
+  defp convert_duration_to_experiment_timeunit(duration, :milliseconds), do: div(duration, 1_000)
+  defp convert_duration_to_experiment_timeunit(duration, :seconds), do: div(duration, 1_000_000)
 
   @doc """
   Returns true if the observations match.

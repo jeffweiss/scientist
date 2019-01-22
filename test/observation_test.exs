@@ -14,6 +14,20 @@ defmodule ObservationTest do
     assert_in_delta 100, observation.duration, 10
   end
 
+  test "it allows different timeunits" do
+    candidate = fn ->
+      :timer.sleep(1)
+      :control
+    end
+    experiment = Experiment.new("test", timeunit: :microseconds)
+    observation = Observation.new(experiment, "control", candidate)
+    assert_in_delta 2000, observation.duration, 1000
+
+    experiment = Experiment.new("test", timeunit: :seconds)
+    observation = Observation.new(experiment, "control", candidate)
+    assert observation.duration == 0
+  end
+
   test "it swallows exceptions" do
     candidate = fn -> raise "foo" end
     experiment = Experiment.new("test")
